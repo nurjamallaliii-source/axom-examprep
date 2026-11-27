@@ -236,7 +236,6 @@
             <p id="packs-sub" class="text-sm text-indigo-100">সকলো শ্ৰেণীৰ অধ্যায়সমূহ পঢ়িবলৈ বিনামূলীয়া। সম্ভাৱ্য মডেল পেপাৰৰ বাবে Pro লওক।</p>
             <div class="pt-1 flex flex-wrap items-center gap-3">
               <button type="button" id="packs-open-modal-btn" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm shadow-lg transition">Unlock All Packs — ₹89/mo</button>
-              <button type="button" id="packs-demo-toggle-btn" class="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-sm border border-white/25 transition">Toggle Pro Demo Access</button>
             </div>
           </div>
         </div>
@@ -298,7 +297,6 @@
           <button type="button" id="btn-unlock-pro-code" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold transition">Unlock</button>
         </div>
       </div>
-      <button type="button" id="activate-demo-pro-btn" class="w-full py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs transition">Preview Free Pro Demo</button>
     </div>
   </div>
 
@@ -2051,10 +2049,9 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
       const saved = JSON.parse(localStorage.getItem('learn_axom_v7') || localStorage.getItem('axom_examprep_v6') || 'null');
       if (saved) {
         state.xp = Number(saved.xp) || 0;
-        state.isPro = Boolean(saved.isPro);
         if (['as', 'en', 'bn'].includes(saved.medium)) state.medium = saved.medium;
         if (saved.proExpiry && Number(saved.proExpiry) > Date.now()) { state.isPro = true; state.proExpiry = Number(saved.proExpiry); }
-        else if (saved.proExpiry && Number(saved.proExpiry) <= Date.now()) { state.isPro = false; state.proExpiry = 0; }
+        else { state.isPro = false; state.proExpiry = 0; }
         if (Array.isArray(saved.savedChapters)) state.savedChapters = new Set(saved.savedChapters);
         if (saved.quizAnswers && typeof saved.quizAnswers === 'object') state.quizAnswers = saved.quizAnswers;
       }
@@ -2062,18 +2059,26 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
 
     // --- RAZORPAY & PRO UNLOCK CONFIG (Update your Razorpay Payment Links & Monthly Codes here) ---
     const PRO_CONFIG = {
-      razorpayMonthlyUrl: '', // Paste your ₹89/mo Razorpay Payment Link here
-      razorpaySeasonUrl: '',  // Paste your ₹299/yr Razorpay Payment Link here
+      razorpayMonthlyUrl: 'https://rzp.io/rzp/yWhz6lrZ', // ₹89/mo Razorpay Payment Page
+      razorpaySeasonUrl: 'https://rzp.io/rzp/NEuIQnH',   // ₹299/yr Razorpay Payment Page
       codes: {
         'AXOM-PRO-30': 30,
         'AXOM-NOV-2026': 30,
         'AXOM-DEC-2026': 30,
         'AXOM-SEASON-365': 365
+      },
+      redirectTokens: {
+        'm30': 30,
+        'y365': 365
       }
     };
 
     function persistState() {
       try { localStorage.setItem('learn_axom_v7', JSON.stringify({ xp: state.xp, isPro: state.isPro, proExpiry: state.proExpiry || 0, medium: state.medium, savedChapters: Array.from(state.savedChapters), quizAnswers: state.quizAnswers })); } catch (e) {}
+    }
+
+    function isChapterLocked(chObj) {
+      return !state.isPro && Number(chObj.num) > 1;
     }
 
     // --- PWA INSTALL & SERVICE WORKER ---
@@ -2241,7 +2246,10 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
 
       const effM = getEffectiveMedium(sub.id, state.medium);
       const chPref = CH_PREFIX[effM] || 'Ch';
-      document.getElementById('chapter-dropdown').innerHTML = sub.chapters.map(c => `<option value="${c.num}" ${c.num === state.selectedChapterNum ? 'selected' : ''}>${c.essayPack ? getChTitle(c, effM) : `${chPref} ${c.num}: ${getChTitle(c, effM)}`} (🔥 ${c.chance}%)</option>`).join('');
+      document.getElementById('chapter-dropdown').innerHTML = sub.chapters.map(c => {
+        const lockTag = isChapterLocked(c) ? ' 🔒 PRO' : (Number(c.num) === 1 && !state.isPro ? ' • FREE' : '');
+        return `<option value="${c.num}" ${c.num === state.selectedChapterNum ? 'selected' : ''}>${c.essayPack ? getChTitle(c, effM) : `${chPref} ${c.num}: ${getChTitle(c, effM)}`} (🔥 ${c.chance}%)${lockTag}</option>`;
+      }).join('');
 
       const idx = sub.chapters.findIndex(c => c.num === state.selectedChapterNum);
       document.getElementById('chapter-counter-badge').textContent = `${idx + 1} / ${sub.chapters.length}`;
@@ -2261,7 +2269,7 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${cls.board} • ${state.selectedClass}${streamTag}</span>
                 <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/30">🔥 ${chObj.chance}% Exam Chance</span>
-                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${pack.isEssay ? (effMed === 'as' ? 'ৰচনা • FREE' : (effMed === 'hi' ? 'निबंध • FREE' : 'Essays • FREE')) : (pack.isGrammar ? (effMed === 'as' ? 'ব্যাকৰণ • FREE' : (effMed === 'hi' ? 'व्याकरण • FREE' : 'Grammar • FREE')) : `Ch ${chObj.num} • FREE`)}</span>
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold ${isChapterLocked(chObj) ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}">${isChapterLocked(chObj) ? `🔒 Ch ${chObj.num} • PRO` : (state.isPro ? `✓ Ch ${chObj.num} • PRO` : `Ch ${chObj.num} • FREE`)}</span>
                 ${pack.verified10Yr ? `<span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-400/40">★ ${cls.board} 2016–2026 Verified</span>` : ''}
               </div>
               <h2 class="text-xl sm:text-2xl font-extrabold text-white leading-snug">${pack.isEssay ? pack.title : `${CH_PREFIX[effMed] || 'Chapter'} ${chObj.num}: ${pack.title}`}</h2>
@@ -2400,6 +2408,32 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
         }).join('');
       }
 
+      if (isChapterLocked(chObj)) {
+        const lockCardHtml = `
+          <div class="bg-gradient-to-br from-slate-900 via-indigo-950/70 to-slate-900 border-2 border-amber-400/40 rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-2xl">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-400/15 border border-amber-400/40 flex items-center justify-center text-3xl">🔒</div>
+            <div class="space-y-1.5 max-w-lg mx-auto">
+              <h3 class="text-xl sm:text-2xl font-extrabold text-white">${effMed === 'as' ? 'এই অধ্যায়টো লক হৈ আছে (PRO)' : 'This Chapter is Locked (PRO)'}</h3>
+              <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">${effMed === 'as' ? 'প্ৰতিটো বিষয়ৰ প্ৰথম অধ্যায় (Ch 1) সম্পূৰ্ণ বিনামূলীয়া! বাকী সকলো অধ্যায়, PDF নোটছ, MCQ কুইজ, ২০১০–২০২৬ ব্যাকৰণ আৰু ৰচনা আনলক কৰিবলৈ Learn Axom Pro লওক।' : 'Chapter 1 of every subject is 100% FREE! Unlock Learn Axom Pro to access all remaining chapters, PDF Notes, MCQ Quizzes, 2010–2026 Grammar Bank & Essays across Class 9–12.'}</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <button type="button" data-open-pro="1" class="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:brightness-110 text-slate-950 font-extrabold text-sm shadow-lg transition">💳 Unlock Pro — ₹89/mo or ₹299/yr</button>
+              <button type="button" data-open-pro="code" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-bold text-sm transition">🔑 Have an Unlock Code?</button>
+            </div>
+          </div>`;
+        document.getElementById('chapter-qa-stage').innerHTML = `
+          <div class="bg-gradient-to-br from-slate-900 via-[#131b2e] to-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-6 space-y-2 shadow-xl">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${cls.board} • ${state.selectedClass}${streamTag}</span>
+              <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/30">🔥 ${chObj.chance}% Exam Chance</span>
+              <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40">🔒 PRO LOCKED</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white leading-snug">${pack.isEssay ? pack.title : `${CH_PREFIX[effMed] || 'Chapter'} ${chObj.num}: ${pack.title}`}</h2>
+            <p class="text-xs sm:text-sm text-slate-400">${getSubName(sub, effMed)} • ${sub.marks}</p>
+          </div>` + lockCardHtml;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
       document.getElementById('chapter-qa-stage').innerHTML = translateBarHtml + headerHtml + bodyHtml;
       if (!pack.comingSoon && pack.fallbackSourceLang && !pack.isTranslated && !pack.isTranslating && !pack.hasTranslateError && !showOriginalSource && navigator.onLine !== false) { translateChapterNow(pack.trCacheKey, pack.fallbackSourceObj, pack.fallbackSourceLang, effMed, pack.activeSection); }
       if (window.lucide) lucide.createIcons();
@@ -2420,7 +2454,7 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
       toggleBtn.className = `px-3 py-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${state.highChanceOnly ? 'bg-amber-500/20 border-amber-400 text-amber-300' : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-amber-400'}`;
 
       const spec = SYLLABUS_CATALOG[state.syllabusClassTab], subs = getSubjectsFor(state.syllabusClassTab, state.syllabusStreamTab);
-      document.getElementById('syllabus-pattern-banner').innerHTML = `<div><span class="font-extrabold text-indigo-300">${spec.board}${isHS ? ' • ' + state.syllabusStreamTab : ''}</span> <span class="text-slate-400 ml-2">${spec.pattern}</span></div><span class="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">${subs.length} Subjects • All Chapters Open</span>`;
+      document.getElementById('syllabus-pattern-banner').innerHTML = `<div><span class="font-extrabold text-indigo-300">${spec.board}${isHS ? ' • ' + state.syllabusStreamTab : ''}</span> <span class="text-slate-400 ml-2">${spec.pattern}</span></div><span class="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">${subs.length} Subjects • ${state.isPro ? 'All Chapters Unlocked' : 'Ch 1 FREE • Ch 2+ PRO'}</span>`;
 
       const q = state.searchQuery.trim().toLowerCase();
       document.getElementById('syllabus-blueprint-grid').innerHTML = subs.map(sub => {
@@ -2435,7 +2469,7 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
                   <div class="min-w-0 text-slate-200 font-medium leading-snug"><span class="text-indigo-300 font-bold">Ch ${c.num}:</span> ${getChTitle(c, getEffectiveMedium(sub.id, state.medium))}</div>
                   <div class="flex items-center gap-1.5 shrink-0">
                     <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold ${c.chance >= 94 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">${c.chance}%</span>
-                    <button type="button" data-jump-chapter="${state.syllabusClassTab}|${isHS ? state.syllabusStreamTab : ''}|${sub.id}|${c.num}" class="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold">Open</button>
+                    <button type="button" data-jump-chapter="${state.syllabusClassTab}|${isHS ? state.syllabusStreamTab : ''}|${sub.id}|${c.num}" class="px-2.5 py-1 rounded-md ${isChapterLocked(c) ? 'bg-amber-500/20 border border-amber-400/40 text-amber-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white'} text-[10px] font-bold">${isChapterLocked(c) ? '🔒 Pro' : 'Open'}</button>
                   </div>
                 </div>`).join('')}
             </div>
@@ -2496,6 +2530,7 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
 
     function printChapterNotes() {
       const cls = SYLLABUS_CATALOG[state.selectedClass], sub = getCurrentSubject(), chObj = getCurrentChapter();
+      if (isChapterLocked(chObj)) { openUpgradeModal(); showToast('Chapter 2+ PDF ke liye Learn Axom Pro unlock karo!', 'warning'); return; }
       const pack = buildChapterPack(state.selectedClass, sub, chObj, state.medium);
       const sheet = document.getElementById('print-notes-sheet');
       const wmHtml = `<div class="print-watermark-layer">${Array.from({ length: 10 }, () => '<div class="print-wm-item">Learn Axom • Nurjamal</div>').join('')}</div>`;
@@ -2584,6 +2619,11 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
         else { playChime(280, 0.12); showToast((UI_TEXT[state.medium] || UI_TEXT.en).wrongTitle, 'warning'); }
         persistState(); renderNavigation(); renderProgress(); renderChapterStage(); return;
       }
+      if (target.dataset.openPro) {
+        openUpgradeModal();
+        if (target.dataset.openPro === 'code') { setTimeout(() => { const el = document.getElementById('pro-code-input'); if (el) el.focus(); }, 100); }
+        return;
+      }
       if (target.dataset.packBuy) { state.isPro ? showToast('Pro Pass Active!', 'success') : openUpgradeModal(); return; }
       if (target.dataset.plan) {
         state.selectedPlan = target.dataset.plan;
@@ -2619,7 +2659,7 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
         }
         case 'btn-razorpay-pay': {
           const url = state.selectedPlan === 'season' ? PRO_CONFIG.razorpaySeasonUrl : PRO_CONFIG.razorpayMonthlyUrl;
-          if (url) { window.open(url, '_blank', 'noopener'); }
+          if (url) { window.location.href = url; }
           else { showToast('Razorpay link setup baki hai — PRO_CONFIG me apna Razorpay Payment Link paste karo!', 'info'); }
           break;
         }
@@ -2649,7 +2689,27 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
     document.getElementById('chapter-search-input').addEventListener('input', (e) => { state.searchQuery = e.target.value; renderSyllabusDirectory(); });
     document.getElementById('upgrade-modal').addEventListener('click', (e) => { if (e.target.id === 'upgrade-modal') closeUpgradeModal(); });
 
-    window.addEventListener('DOMContentLoaded', () => { loadVoices(); renderAll(); });
+    function checkAutoUnlockFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tok = (params.get('u') || '').trim().toLowerCase();
+        const codeParam = (params.get('unlock') || '').trim().toUpperCase();
+        const days = (PRO_CONFIG.redirectTokens && PRO_CONFIG.redirectTokens[tok]) || PRO_CONFIG.codes[codeParam] || 0;
+        if (days > 0) {
+          state.isPro = true;
+          state.proExpiry = Date.now() + days * 24 * 60 * 60 * 1000;
+          persistState();
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+          renderAll();
+          showToast(`Payment Successful! Learn Axom Pro unlocked for ${days} days!`, 'success');
+          if (window.confetti) confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener('DOMContentLoaded', () => { loadVoices(); renderAll(); checkAutoUnlockFromUrl(); });
   </script>
 </body>
 </html>
