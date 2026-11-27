@@ -293,7 +293,7 @@
       <div class="pt-2 border-t border-slate-800 space-y-2">
         <label for="pro-code-input" class="block text-xs font-bold text-slate-300">🔑 Have a Monthly Pro Unlock Code?</label>
         <div class="flex gap-2">
-          <input id="pro-code-input" type="text" placeholder="e.g. AXOM-PRO-30" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white uppercase focus:outline-none focus:border-amber-400" />
+          <input id="pro-code-input" type="text" placeholder="Enter your secret unlock code" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white uppercase focus:outline-none focus:border-amber-400" />
           <button type="button" id="btn-unlock-pro-code" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold transition">Unlock</button>
         </div>
       </div>
@@ -2058,14 +2058,21 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
     } catch (e) {}
 
     // --- RAZORPAY & PRO UNLOCK CONFIG (Update your Razorpay Payment Links & Monthly Codes here) ---
+    function hashUnlockCode(str) {
+      let h = 0x811c9dc5;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return h.toString(16).padStart(8, '0');
+    }
+
     const PRO_CONFIG = {
       razorpayMonthlyUrl: 'https://rzp.io/rzp/yWhz6lrZ', // ₹89/mo Razorpay Payment Page
       razorpaySeasonUrl: 'https://rzp.io/rzp/NEuIQnH',   // ₹299/yr Razorpay Payment Page
-      codes: {
-        'AXOM-PRO-30': 30,
-        'AXOM-NOV-2026': 30,
-        'AXOM-DEC-2026': 30,
-        'AXOM-SEASON-365': 365
+      codeHashes: {
+        '631c6b04': 30,
+        'f47b0594': 365
       },
       redirectTokens: {
         'm30': 30,
@@ -2666,7 +2673,7 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
         case 'btn-unlock-pro-code': {
           const inp = document.getElementById('pro-code-input');
           const code = (inp ? inp.value : '').trim().toUpperCase();
-          const days = PRO_CONFIG.codes[code];
+          const days = PRO_CONFIG.codeHashes[hashUnlockCode(code)];
           if (days) {
             state.isPro = true;
             state.proExpiry = Date.now() + days * 24 * 60 * 60 * 1000;
@@ -2694,7 +2701,7 @@ Step 4 (Verification & Conclusion): Double-check signs (+/−) and write the fin
         const params = new URLSearchParams(window.location.search);
         const tok = (params.get('u') || '').trim().toLowerCase();
         const codeParam = (params.get('unlock') || '').trim().toUpperCase();
-        const days = (PRO_CONFIG.redirectTokens && PRO_CONFIG.redirectTokens[tok]) || PRO_CONFIG.codes[codeParam] || 0;
+        const days = (PRO_CONFIG.redirectTokens && PRO_CONFIG.redirectTokens[tok]) || (codeParam ? PRO_CONFIG.codeHashes[hashUnlockCode(codeParam)] : 0) || 0;
         if (days > 0) {
           state.isPro = true;
           state.proExpiry = Date.now() + days * 24 * 60 * 60 * 1000;
