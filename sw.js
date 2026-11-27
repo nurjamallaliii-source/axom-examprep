@@ -1,4 +1,4 @@
-const CACHE_NAME = 'learn-axom-v76';
+const CACHE_NAME = 'learn-axom-v77';
 const CORE_ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {
